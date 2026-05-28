@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manual → Auto Bridge | Flight Test Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <i class="ti ti-test-pipe"></i>
+    <span>TestBridge</span>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a href="#" class="nav-item active"><i class="ti ti-wand"></i> Generator</a>
+    <a href="#" class="nav-item"><i class="ti ti-history"></i> History</a>
+    <a href="#" class="nav-item"><i class="ti ti-settings"></i> Settings</a>
+    <a href="#" class="nav-item"><i class="ti ti-book"></i> Docs</a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="model-badge">
+      <i class="ti ti-sparkles"></i>
+      <span>Gemini 2.5 Flash</span>
+    </div>
+    <div class="sidebar-version">v1.0.0 · Flask + Python</div>
+  </div>
+</aside>
+
+<!-- ── MAIN ── -->
+<main class="main">
+
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <h1>Manual <span class="arrow-text">→</span> Automation Bridge</h1>
+      <p>Convert plain-English test cases into BDD scripts &amp; synthetic data</p>
+    </div>
+    <div class="topbar-right">
+      <div id="statusPill" class="status-pill idle">
+        <span class="status-dot"></span>
+        <span id="statusText">Ready</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Content grid -->
+  <div class="content-grid">
+
+    <!-- LEFT: Input panel -->
+    <section class="panel input-panel">
+
+      <div class="panel-header">
+        <i class="ti ti-message-bolt"></i>
+        <span>Test Case Input</span>
+      </div>
+
+      <label class="field-label">Describe your test case</label>
+      <textarea id="testInput" class="main-textarea"
+        placeholder="e.g. User buys a ticket with an expired card and a promo code…"></textarea>
+
+      <div class="chip-label">Quick examples</div>
+      <div class="chips">
+        <div class="chip" onclick="setExample(this)">Expired card + promo code</div>
+        <div class="chip" onclick="setExample(this)">Guest round-trip with infant passenger</div>
+        <div class="chip" onclick="setExample(this)">Cancel booking within 24h for refund</div>
+        <div class="chip" onclick="setExample(this)">Corporate traveler applies FFP miles</div>
+        <div class="chip" onclick="setExample(this)">Seat upgrade with partial payment failure</div>
+      </div>
+
+      <div class="options-grid">
+        <div class="option-box">
+          <label class="field-label">Framework</label>
+          <select id="framework">
+            <option value="Cucumber/Python">Cucumber + Python (Selenium)</option>
+            <option value="Cucumber/Java">Cucumber + Java (Selenium)</option>
+            <option value="Appium/Java">Appium + Java (Mobile)</option>
+            <option value="Playwright/Python">Playwright + Python</option>
+          </select>
+        </div>
+        <div class="option-box">
+          <label class="field-label">Datasets to generate</label>
+          <select id="dataCount">
+            <option value="2">2 datasets</option>
+            <option value="3" selected>3 datasets</option>
+            <option value="5">5 datasets</option>
+          </select>
+        </div>
+      </div>
+
+      <button id="genBtn" class="gen-btn" onclick="generate()">
+        <i class="ti ti-wand"></i>
+        <span>Generate Script + Data</span>
+        <i class="ti ti-arrow-right"></i>
+      </button>
+
+      <!-- Pipeline -->
+      <div id="pipeline" class="pipeline" style="display:none;">
+        <div class="pipe-step" id="pipe-nlp">
+          <div class="pipe-icon"><i class="ti ti-brain"></i></div>
+          <span>NLP Parsing</span>
+        </div>
+        <div class="pipe-arrow"><i class="ti ti-chevron-right"></i></div>
+        <div class="pipe-step" id="pipe-gherkin">
+          <div class="pipe-icon"><i class="ti ti-code"></i></div>
+          <span>Gherkin</span>
+        </div>
+        <div class="pipe-arrow"><i class="ti ti-chevron-right"></i></div>
+        <div class="pipe-step" id="pipe-steps">
+          <div class="pipe-icon"><i class="ti ti-code-dots"></i></div>
+          <span>Step Defs</span>
+        </div>
+        <div class="pipe-arrow"><i class="ti ti-chevron-right"></i></div>
+        <div class="pipe-step" id="pipe-data">
+          <div class="pipe-icon"><i class="ti ti-database"></i></div>
+          <span>Test Data</span>
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div id="errorBox" class="error-box" style="display:none;"></div>
+
+    </section>
+
+    <!-- RIGHT: Output panel -->
+    <section class="panel output-panel">
+
+      <div id="emptyState" class="empty-state">
+        <i class="ti ti-robot"></i>
+        <p>Your generated artifacts will appear here.</p>
+        <span>Describe a test case and hit Generate.</span>
+      </div>
+
+      <div id="outputContent" style="display:none; height:100%; display:none; flex-direction:column;">
+
+        <!-- Metrics row -->
+        <div id="metricsRow" class="metrics-row"></div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+          <button class="tab active" onclick="switchTab('gherkin',this)">
+            <i class="ti ti-file-text"></i> Feature File
+          </button>
+          <button class="tab" onclick="switchTab('stepdefs',this)">
+            <i class="ti ti-code-dots"></i> Step Definitions
+          </button>
+          <button class="tab" onclick="switchTab('testdata',this)">
+            <i class="ti ti-database"></i> Test Data
+          </button>
+        </div>
+
+        <!-- Gherkin tab -->
+        <div id="tab-gherkin" class="tab-pane active">
+          <div class="code-toolbar">
+            <span class="code-file-tag"><i class="ti ti-file"></i> booking.feature</span>
+            <button class="copy-btn" onclick="copyCode('gherkinCode')">
+              <i class="ti ti-copy"></i> Copy
+            </button>
+          </div>
+          <pre id="gherkinCode" class="code-block gherkin-colors"></pre>
+        </div>
+
+        <!-- Step defs tab -->
+        <div id="tab-stepdefs" class="tab-pane">
+          <div class="code-toolbar">
+            <span class="code-file-tag"><i class="ti ti-file"></i> step_definitions.py</span>
+            <button class="copy-btn" onclick="copyCode('stepdefsCode')">
+              <i class="ti ti-copy"></i> Copy
+            </button>
+          </div>
+          <pre id="stepdefsCode" class="code-block python-colors"></pre>
+        </div>
+
+        <!-- Test data tab -->
+        <div id="tab-testdata" class="tab-pane">
+          <div id="dataCards"></div>
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
